@@ -19,6 +19,30 @@ from ocrdocs.prep.split import Chunk
 # 输入范围：全部 .md（含书-*、AI 清单）
 _META_KEYS = ("障碍类别", "主要行为", "干预目标", "对应工具")
 
+# 递归扫描时需要排除的目录：输出/辅助/隐藏目录，避免自嵌套污染
+# （默认输出就在输入目录内的 prep/，重跑会把上轮输出当输入）
+_EXCLUDED_DIR_NAMES = {"prep", "refined", "media", "__pycache__", ".git"}
+
+
+def _is_excluded_dir(d: Path | str) -> bool:
+    """判断目录是否应排除（已知输出/辅助目录，或隐藏目录名，或含下划线前缀的临时目录）。"""
+    name = d.name if isinstance(d, Path) else d
+    if name in _EXCLUDED_DIR_NAMES:
+        return True
+    if name.startswith("_"):  # _refine_sample、_refine_sample_out 等临时目录
+        return True
+    return False
+
+
+def _collect_md_files(src_dir: Path) -> list[Path]:
+    """递归收集 .md 输入，跳过排除目录。"""
+    files: list[Path] = []
+    for p in sorted(src_dir.rglob("*.md")):
+        if any(_is_excluded_dir(part) for part in p.relative_to(src_dir).parts[:-1]):
+            continue
+        files.append(p)
+    return files
+
 
 def run_prep(
     src_dir: Path,
@@ -37,7 +61,7 @@ def run_prep(
     terms = terms if terms is not None else load_terms_meta()
 
     stats = PrepStats()
-    md_files = sorted(src_dir.rglob("*.md"))
+    md_files = _collect_md_files(src_dir)
     stats.input_files = len(md_files)
 
     out_items: list[tuple[Path, str, str, dict]] = []  # (out_path, content, doc_type, meta)
