@@ -347,31 +347,30 @@ def _split_book_by_cases(content: str, anchors: list[tuple[str, int]]) -> list[C
 
 
 def _split_book_generic(path: Path, content: str) -> list[Chunk]:
-    """通用教材按标题层级拆：只按 ## 章（及少数 ### 有效节）拆，过滤 OCR 噪声标题。
+    """通用（章节型）教材按节拆：只以 ## 节为边界（不拆 ### 小节）。
 
-    整本 OCR 书标题杂（含表格噪声如 ×A2），过度拆分会产生大量噪声 chunk；
-    这里以 "## 章" 为主边界，并丢弃过短/纯符号标题。
+    整本 OCR 书 ### 混入大量图注/表格/噪声标题（图15-5、A• 等），
+    若把 ### 当边界会切得过碎（书1 曾拆 231 个）；改为仅按 ## 节拆，
+    图注/小节/噪声自然归属所属节。过滤 OCR 噪声节点（“5推荐资源”等）。
     """
     heads = list(_BOOK_HEADING.finditer(content))
     if not heads:
         return [Chunk(T_BOOK, path.stem, content)]
 
-    # 选取有效边界：以 ## 章为主（避免 ### 过度细分产生大量噪声 chunk），
-    # 排除 ## 目录/参考文献/致谢/前言；### 仅当标题明显正常时作为边界（保留层级）
+    # 只取 ## 作为边界；排除目录/参考文献/致谢/前言/序言 等章节性标题
     valid_heads = []
     for m in heads:
         level = m.group(1)
         title = m.group(2).strip()
-        if len(level) > 3:
+        if level != "##":
             continue
         if title in ("目录", "参考文献", "致谢", "前言", "序言", "目录页"):
             continue
-        if len(level) == 1:
-            continue  # 跳过 # 封面类
-        if len(level) == 3:
-            # ### 节：仅在标题 ≥6 字且含多汉字时保留（OCR 噪声多为短符号）
-            if not (len(title) >= 6 and _HAS_HAN.search(title)):
-                continue
+        # 过滤噪声 ## 节（无汉字 / 超短 / “N推荐资源”等 OCR 碎片）
+        if not _HAS_HAN.search(title):
+            continue
+        if len(title) <= 1:
+            continue
         valid_heads.append(m)
 
     if not valid_heads:
