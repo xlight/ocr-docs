@@ -13,6 +13,8 @@ from ocrdocs.prep import anonymize, clean, output as prep_output, split as split
 from ocrdocs.prep.config_loader import load_anonymize_map, load_terms_meta
 from ocrdocs.prep.metadata import apply_metadata, build_filename
 from ocrdocs.prep.output import PrepStats
+from ocrdocs.prep.quality_gate import GateResult, apply_quality_gate
+from ocrdocs.prep.split import Chunk
 
 # 输入范围：全部 .md（含书-*、AI 清单）
 _META_KEYS = ("障碍类别", "主要行为", "干预目标", "对应工具")
@@ -49,6 +51,26 @@ def run_prep(
         # 2. 类型检测 + 拆分
         doc_type = split_mod.detect_doc_type(md_path.name, clean_text)
         splitted = split_mod.split_document(md_path, clean_text, doc_type)
+
+        # 2.5 质量门（拆分后、写入前）：丢弃空壳/乱码，过碎块并入父块
+        gate_res = GateResult()
+        filtered = apply_quality_gate(splitted.chunks, gate_res)
+        stats.discarded_chunks += gate_res.discarded
+        stats.merged_chunks += (
+            gate_res.merged_into_parent + gate_res.overfragment_merged
+        )
+        splitted.chunks = filtered
+
+        # 2.6 案例完整性聚合（D9）：叙事/结构化案例若拆成多块，
+        #     额外输出“完整案例文件”（保留画像→行为→目标全貌，供 Dify 父文档分段回溯）
+        if doc_type in ("叙事案例", "结构化案例") and len(splitted.chunks) > 1:
+            full_case = Chunk(
+                doc_type=doc_type,
+                title=md_path.stem,
+                content="\n\n".join(c.content for c in splitted.chunks),
+            )
+            splitted.chunks.insert(0, full_case)
+
         structured_types = {"结构化案例", "个案记录", "评估汇总"}
 
         # 3. 元数据注入（结构化 vs 降级）

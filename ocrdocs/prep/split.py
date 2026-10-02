@@ -187,9 +187,37 @@ _HAS_SEQ = re.compile(r"^[一二三四五六七八九十]+[、．. ]")
 _HAS_SEQ2 = re.compile(r"^[（(][一二三四五六七八九十]+[）)]")
 
 
+def _doc_heading(fallback: str, content: str) -> str:
+    """取文档标题：首个 `**标题**` 或 `# 标题`，否则 fallback。"""
+    m = _BOLD_HEADING.search(content)
+    if m:
+        return m.group(1).strip()
+    m2 = re.search(r"^#\s+(.+)$", content, re.M)
+    if m2:
+        return m2.group(1).strip()
+    return fallback
+
+
 def _split_handout(path: Path, content: str) -> list[Chunk]:
-    """讲义按 **一、二、三** 粗体标题分段。"""
-    heads = list(_BOLD_HEADING.finditer(content))
+    """讲义按“讲”级聚合：整讲为一个 chunk（含讲稿前缀标题）。
+
+    修订（D3）：不再按 `**1. 2. 3.**` 步骤拆——实测把 8-19kB 讲稿切成
+    0.4-0.9kB 步骤碎片，丢失方法论上下文。仅当含多个 `**第X讲**`/超大
+    （>15kB）时按讲/大节拆。
+    """
+    # 检测是否含多个“第X讲/第X节”级标题（仅此种情况按讲拆）
+    lecture_heads = [m for m in _BOLD_HEADING.finditer(content)
+                     if re.search(r"第[一二三四五六七八九十0-9]+(?:讲|节|部分)", m.group(1))]
+    if len(lecture_heads) <= 1 and len(content) <= 15000:
+        # 单讲短讲稿：整讲一个 chunk；标题取文档首个标题/首行
+        title = _doc_heading(path.stem, content)
+        return [Chunk(T_HANDOUT, title, content)]
+
+    # 多讲或超大 → 按第X讲/大节（一、二）拆
+    heads = [m for m in _BOLD_HEADING.finditer(content)
+             if re.search(r"第[一二三四五六七八九十0-9]+(?:讲|节|部分)|^[一二三四五六七八九十]+[、．]", m.group(1))]
+    if not heads and len(content) > 15000:
+        heads = list(_BOLD_HEADING.finditer(content))
     if not heads:
         return [Chunk(T_HANDOUT, path.stem, content)]
     chunks: list[Chunk] = []
@@ -198,7 +226,7 @@ def _split_handout(path: Path, content: str) -> list[Chunk]:
         seg = content[m.start():end].strip()
         if seg:
             chunks.append(Chunk(T_HANDOUT, m.group(1).strip(), seg))
-    return chunks
+    return chunks if chunks else [Chunk(T_HANDOUT, path.stem, content)]
 
 
 def _split_book(path: Path, content: str) -> list[Chunk]:

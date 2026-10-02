@@ -97,6 +97,31 @@ def test_strip_images_placeholder():
     assert clean.strip_images(text, placeholder="【图】") == "【图】"
 
 
+def test_strip_html_img_tags():
+    text = '<img src="media/x.png" style="width:2in" />'
+    assert clean.strip_images(text) == ""
+    assert clean.strip_images(text, placeholder="【图】") == "【图】"
+
+
+def test_strip_html_img_in_mixed():
+    text = "正文 <img src='a.jpg'/> 内容"
+    result = clean.strip_images(text)
+    assert "<img" not in result
+    assert "正文" in result and "内容" in result
+
+
+def test_strip_html_tags_inline():
+    text = "强调<u>重点</u>内容<b>加粗</b>"
+    assert clean.strip_html_tags(text) == "强调重点内容加粗"
+
+
+def test_clean_text_removes_inline_html():
+    md = "正文<u>下划线</u>更多文本\n"
+    result = clean.clean_text(md)
+    assert "<u>" not in result
+    assert "下划线" in result
+
+
 # ---------- 总入口 ----------
 
 def test_clean_text_end_to_end():

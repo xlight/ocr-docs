@@ -96,11 +96,20 @@ def test_split_narr_case_by_bold_theme():
 
 # ---------- 讲义 ----------
 
-def test_split_handout_by_bold():
-    content = "**一、代币制是什么？**\n内容a\n\n**二、代币制的组成**\n内容b\n"
+def test_split_handout_single_lecture_as_one_chunk():
+    """单讲短讲稿整讲为一个 chunk（不按步骤拆，保留方法论上下文）。"""
+    content = "行为支持策略之自我管理策略\n**第一讲：自我管理的基本概念**\n**一、自我管理的定义**\n定义内容。\n**1.步骤甲**\n步骤内容。\n**2.步骤乙**\n步骤内容。\n"
+    result = split_document(Path("h.md"), content, T_HANDOUT)
+    assert len(result.chunks) == 1
+    assert "自我管理" in result.chunks[0].title
+
+
+def test_split_handout_multi_lecture_by_lecture():
+    """多讲拆按第X讲拆。"""
+    content = "**第一讲：基本概念**\n甲内容。\n**第二讲：应用操作**\n乙内容。\n"
     result = split_document(Path("h.md"), content, T_HANDOUT)
     assert len(result.chunks) == 2
-    assert result.chunks[0].title == "一、代币制是什么？"
+    assert result.chunks[0].title == "第一讲：基本概念"
 
 
 # ---------- 教材 ----------

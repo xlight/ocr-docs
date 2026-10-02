@@ -30,6 +30,8 @@ class PrepStats:
     by_type: dict[str, int] = field(default_factory=dict)
     meta_coverage: dict[str, int] = field(default_factory=dict)
     unknown_names: list[str] = field(default_factory=list)
+    discarded_chunks: int = 0      # 质量门丢弃
+    merged_chunks: int = 0         # 质量门并入父块
 
 
 def output_dir_for(doc_type: str) -> Path:
@@ -65,6 +67,8 @@ def write_quality_report(prep_root: Path, stats: PrepStats) -> Path:
         "output_files": stats.output_files,
         "by_type": stats.by_type,
         "meta_coverage": stats.meta_coverage,
+        "discarded_chunks": stats.discarded_chunks,
+        "merged_chunks": stats.merged_chunks,
         "unknown_names_count": len(stats.unknown_names),
         "unknown_names": stats.unknown_names[:50],
     }

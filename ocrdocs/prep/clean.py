@@ -138,13 +138,28 @@ def apply_misfixes(text: str, fixes: Optional[list[tuple[str, str]]] = None) -> 
 # ---------- 图片引用清理 ----------
 
 IMAGE_PATTERN = re.compile(r"!\[([^\]]*)\]\(([^)]*)\)")
-
+HTML_IMG_PATTERN = re.compile(r"<img[^>]*/?>")
 
 def strip_images(markdown_text: str, placeholder: str = "") -> str:
-    """移除图片引用；placeholder 非空时替换为说明文本（默认直接移除）。"""
-    if not placeholder:
-        return IMAGE_PATTERN.sub("", markdown_text)
-    return IMAGE_PATTERN.sub(placeholder, markdown_text)
+    """移除图片引用（Markdown 语法 + HTML `<img>` 标签）；placeholder 非空时替换为说明文本。"""
+    text = markdown_text
+    if placeholder:
+        text = IMAGE_PATTERN.sub(placeholder, text)
+        text = HTML_IMG_PATTERN.sub(placeholder, text)
+    else:
+        text = IMAGE_PATTERN.sub("", text)
+        text = HTML_IMG_PATTERN.sub("", text)
+    return text
+
+
+# ---------- 通用 HTML 标签剥离 ----------
+
+def strip_html_tags(markdown_text: str) -> str:
+    """剥离行内 HTML 标签（如 <u> </u> <b> 等），保留其内文本。
+
+    注意：表格类 <table> 已在 convert_html_tables 处理，此处只清残留标签。
+    """
+    return re.sub(r"<[a-zA-Z/][^>]*>", "", markdown_text)
 
 
 # ---------- 总入口 ----------
@@ -158,6 +173,7 @@ def clean_text(markdown_text: str) -> str:
     text = normalize_ascii_mixed_punct(text)
     text = apply_misfixes(text)
     text = strip_images(text)
+    text = strip_html_tags(text)
     # 清理残留的空白/多余空行
     text = re.sub(r"\n{3,}", "\n\n", text)
     return text.strip()
