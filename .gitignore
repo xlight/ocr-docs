@@ -1,0 +1,30 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+.venv/
+venv/
+
+# 模型缓存（Docling/RapidOCR 首次运行下载）
+.cache/
+models/
+*.onnx
+*.pdmodel
+
+# 转换输出目录（不排除单个 .md，避免误伤 README 等）
+output/
+out/
+converted/
+
+# 测试与工具
+.pytest_cache/
+.coverage
+htmlcov/
+
+# IDE / 系统
+.idea/
+.vscode/
+.DS_Store
