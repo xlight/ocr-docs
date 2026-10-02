@@ -5,20 +5,20 @@
     "url": "https://github.com/xlight"
   },
   "metadata": {
-    "description": "中文教育/特教文档 → Markdown 转换技能（ocr-docs）",
-    "version": "0.1.0"
+    "description": "中文教育/特教文档 → Markdown 转换 + Dify 知识库预处理技能（ocr-docs）",
+    "version": "0.2.0"
   },
   "plugins": [
     {
       "name": "ocr-docs",
-      "description": "将 Word/PDF（含扫描版中文书籍）转换为规范 Markdown：Docling 版面分析 + RapidOCR 中文 OCR + 错字修正/术语表/前置页保护增强",
-      "version": "0.1.0",
+      "description": "将 Word/PDF（含扫描版中文书籍）转换为规范 Markdown（Docling 版面分析 + RapidOCR OCR + 增强），并可将案例 Markdown 预处理为 Dify 知识库输入（prep：清洗/拆分/元数据/脱敏）",
+      "version": "0.2.0",
       "author": {
         "name": "xlight",
         "url": "https://github.com/xlight"
       },
       "homepage": "https://github.com/xlight/ocr-docs",
-      "tags": ["pdf", "markdown", "ocr", "chinese", "doc-conversion"],
+      "tags": ["pdf", "markdown", "ocr", "chinese", "doc-conversion", "rag"],
       "source": "./"
     }
   ]

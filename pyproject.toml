@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "ocr-docs"
-version = "0.1.0"
-description = "中文教育/特教文档 → 规范 Markdown：Docling 版面分析 + RapidOCR 中文 OCR + 垂直增强（错字修正/前置页保护/术语表）"
+version = "0.2.0"
+description = "中文教育/特教文档 → 规范 Markdown 转换 + 案例→Dify 知识库预处理（清洗/拆分/元数据/脱敏）"
 readme = "README.md"
 requires-python = ">=3.10"
 license = { text = "MIT" }

@@ -16,6 +16,7 @@ metadata:
 - 用户要求把 .docx / .doc / .pdf 转成 Markdown
 - 用户提供**扫描版 PDF**（无文本层），要求提取文字/转格式
 - 用户要求处理中文教育、特教类文档的批量转换
+- 用户想将案例/评估 Markdown 整理为 Dify 知识库输入（预处理）
 
 ## 安装检查
 
@@ -43,6 +44,13 @@ ocr-docs convert ./目录 -o ./输出目录/      # 目录递归批量
 ocr-docs convert --scanned 扫描书.pdf -o 输出.md
 ocr-docs convert --scanned 扫描书.pdf --front-matter-pages 4 -o 输出.md
 #                                        ↑ 前 4 页（封面/版权）逐行保护
+```
+
+**案例→Dify 知识库预处理**：
+
+```bash
+ocr-docs prep 案例/markdown -o 案例/markdown/prep
+# 输出：kb_case{case,assessment,handout} + kb_rule + dify_config.md + prep_report.json
 ```
 
 **常用参数**：

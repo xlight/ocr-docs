@@ -1,12 +1,12 @@
 {
   "name": "ocr-docs",
-  "description": "中文教育/特教文档 → 规范 Markdown 转换（普通文档 + 扫描版 PDF OCR），含错字修正/术语表/前置页保护增强",
-  "version": "0.1.0",
+  "description": "中文教育/特教文档 → 规范 Markdown 转换（普通文档 + 扫描版 PDF OCR）+ 案例→Dify 知识库预处理（prep），含错字修正/术语表/前置页保护/脱敏增强",
+  "version": "0.2.0",
   "author": {
     "name": "xlight",
     "url": "https://github.com/xlight"
   },
   "homepage": "https://github.com/xlight/ocr-docs",
   "license": "MIT",
-  "tags": ["pdf", "markdown", "ocr", "chinese", "doc-conversion"]
+  "tags": ["pdf", "markdown", "ocr", "chinese", "doc-conversion", "rag", "dify"]
 }

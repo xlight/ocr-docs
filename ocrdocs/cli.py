@@ -88,6 +88,34 @@ def _convert_scanned(
 
 
 @app.command()
+def prep(
+    input_dir: Path = typer.Argument(..., help="输入的 Markdown 目录（如 案例/markdown）"),
+    output: Optional[Path] = typer.Option(
+        None, "-o", "--output", help="输出目录（缺省：输入目录下 prep/）"
+    ),
+):
+    """案例 Markdown → Dify 知识库输入（清洗/拆分/元数据/脱敏，双库输出）。"""
+    from ocrdocs.prep.pipeline import run_prep
+
+    src = Path(input_dir)
+    if not src.is_dir():
+        typer.echo(f"❌ 输入不是目录: {src}", err=True)
+        raise typer.Exit(code=1)
+    out = Path(output) if output else src / "prep"
+    try:
+        stats = run_prep(src, out)
+        typer.echo(
+            f"✅ prep 完成: {stats.input_files} 输入 → {stats.output_files} 输出 @ {out}"
+        )
+        if stats.unknown_names:
+            typer.echo(f"⚠️ 待脱敏清单 {len(stats.unknown_names)} 项，见 prep_report.json", err=True)
+        typer.echo(f"📄 质量报告: {out / 'prep_report.json'}")
+    except Exception as e:
+        typer.echo(f"❌ prep 失败: {e}", err=True)
+        raise typer.Exit(code=1)
+
+
+@app.command()
 def version():
     """显示版本。"""
     typer.echo(f"ocr-docs {__version__}")

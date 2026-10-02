@@ -18,6 +18,7 @@
 | 中文错字词表（45 条） | — | ✅ 本项目核心 |
 | 前置页（封面/版权）保护 | — | ✅ 本项目核心 |
 | 特教术语表 | — | ✅ 本项目核心 |
+| 案例→Dify 知识库预处理（prep） | — | ✅ 清洗/拆分/元数据/脱敏 |
 | CLI 编排 + SKILL.md | — | ✅ 本项目 |
 
 默认 OCR 后端选择有社区实测支撑：RapidOCR 简体中文 Han CER 0.054（优于 OcrMac 0.097 / Tesseract 0.116），且模型随包分发、离线可用。
@@ -59,6 +60,9 @@ ocr-docs convert ./docs -o ./out           # 目录递归批量
 # 扫描版 PDF（OCR + 版面分析）
 ocr-docs convert --scanned 扫描书.pdf -o 输出.md
 ocr-docs convert --scanned 扫描书.pdf --front-matter-pages 4 -o 输出.md
+
+# 案例 Markdown → Dify 知识库输入（清洗/拆分/元数据/脱敏，双库输出）
+ocr-docs prep 案例/markdown -o 案例/markdown/prep
 ```
 
 ## 工作流
@@ -93,6 +97,27 @@ flowchart LR
 | `--ocr-engine` | `rapidocr`（跨平台）/ `ocrmac`（macOS）| rapidocr |
 | `--front-matter-pages N` | 前置页保护数 | 0 |
 | `--no-enhance` | 跳过中文增强 | 关 |
+| `prep <输入目录>` | 案例 Markdown → Dify 知识库输入 | 必填 |
+| `prep -o, --output` | prep 输出目录 | 输入目录下 prep/ |
+
+## 案例→Dify 知识库预处理（prep）
+
+`ocr-docs prep` 将案例目录下的 Markdown（评估报告/个案记录/教学案例/讲义/教材/映射规则）转为适合 Dify 知识库检索的结构化文档集：
+
+```mermaid
+flowchart LR
+    A[案例 Markdown] --> B[清洗<br/>锚点/表格/标点/图片]
+    B --> C[拆分<br/>按 7 类文档类型]
+    C --> D[元数据注入<br/>类型/障碍/行为/工具/目标]
+    D --> E[脱敏<br/>小X 候选 + 映射]
+    E --> F[双库输出<br/>kb_case + kb_rule]
+    F --> G[prep_report.json 质量自检]
+```
+
+- 输出 `kb_case/{case,assessment,handout}`（案例库）+ `kb_rule`（映射规则库）
+- 文件名体现核心特征：`{类型}_{代号}_{障碍类别}_{核心行为}.md`
+- 附带 `dify_config.md`（Dify 导入配置模板）与 `prep_report.json`（统计/元数据覆盖/待脱敏清单）
+- 详见 [`京小融/案例/案例Markdown导入Dify知识库预处理说明.md`](../京小融/案例/案例Markdown导入Dify知识库预处理说明.md)
 
 ## 中文增强层（zh_enhance）
 
