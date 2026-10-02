@@ -124,7 +124,31 @@ def check_anonymization(prep_root: Path, res: CheckResult) -> None:
         res.ok(f"无真实名泄漏（对照 {len(mapping)} 条映射）")
 
 
-def run_all_checks(prep_root: Path) -> CheckResult:
+def check_case_integrity(prep_root: Path, src_dir: Path | None = None, res: CheckResult | None = None) -> CheckResult:
+    """案例完整性：原始文档可识别案例数 vs 产出案例数（用户新增验收维度）。
+
+    需要 src_dir（原始 markdown）才能计算源基准；缺省仅报产出数。
+    """
+    if res is None:
+        res = CheckResult()
+    eval_out = [f.name for f in (prep_root / "kb_case" / "assessment").glob("*.md") if f.name.startswith("评估_")]
+    res.ok(f"产出评估文件 {len(eval_out)} 个")
+    if src_dir:
+        src = src_dir / "00评估个案汇总.md"
+        if src.exists():
+            import re as _re
+
+            content = src.read_text(encoding="utf-8")
+            src_reports = _re.findall(r"^#{1,2}[ \t]*([^\n]*评估报告[^\n]*)", content, _re.M)
+            res.ok(f"源评估报告 {len(src_reports)} 个")
+            if len(src_reports) == len(eval_out):
+                res.ok("案例数量一致（源输出评估数 = 产出评估数）")
+            else:
+                res.fail(f"案例数量不一致：源 {len(src_reports)} vs 产出 {len(eval_out)}")
+    return res
+
+
+def run_all_checks(prep_root: Path, src_dir: Path | None = None) -> CheckResult:
     """运行全部验收检查。"""
     res = CheckResult()
     try:
@@ -132,6 +156,7 @@ def run_all_checks(prep_root: Path) -> CheckResult:
         check_filenames(prep_root, res)
         check_content_cleanliness(prep_root, res)
         check_anonymization(prep_root, res)
+        check_case_integrity(prep_root, src_dir, res)
     except Exception as e:
         res.fail(f"验收过程异常: {e}")
     return res
