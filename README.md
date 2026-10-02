@@ -99,6 +99,10 @@ flowchart LR
 | `--no-enhance` | 跳过中文增强 | 关 |
 | `prep <输入目录>` | 案例 Markdown → Dify 知识库输入 | 必填 |
 | `prep -o, --output` | prep 输出目录 | 输入目录下 prep/ |
+| `refine <输入目录>` | 拆 OCR 修缮任务清单（Agent 逐段修缮后 refine-apply 拼装）| 必填 |
+| `refine -o, --output` | 任务清单 JSON 输出路径 | 输入同级 refine_tasks.json |
+| `refine --limit N` | 抽样：只拆前 N 个文件 | 全量 |
+| `refine-apply <tasks.json>` | 套安全校验拼装 Agent 修缮结果，写回 refined/ | 必填 |
 
 ## 案例→Dify 知识库预处理（prep）
 
@@ -118,6 +122,23 @@ flowchart LR
 - 文件名体现核心特征：`{类型}_{代号}_{障碍类别}_{核心行为}.md`
 - 附带 `dify_config.md`（Dify 导入配置模板）与 `prep_report.json`（统计/元数据覆盖/待脱敏清单）
 - 详见 [`京小融/案例/案例Markdown导入Dify知识库预处理说明.md`](../京小融/案例/案例Markdown导入Dify知识库预处理说明.md)
+
+## OCR 错字修缮（refine）
+
+拆分出的 markdown（尤其扫描书）常带 OCR 错字/乱码。修缮采用「CLI 拆任务 → Agent 修缮 → CLI 校验拼装」，**CLI 不调用任何 LLM、不需要 API key**：
+
+```mermaid
+flowchart LR
+    A[prep 输出目录] --> B[ocr-docs refine<br/>拆段级修缮任务 JSON]
+    B --> C[Agent 读任务清单<br/>用自己的 LLM 逐段改错字，写回 refined]
+    C --> D[ocr-docs refine-apply<br/>tamper_guard 安全校验 + 拼装]
+    D --> E[refined/ 目录]<br/>交下一步
+```
+
+- `refine` 生成 `refine_tasks.json`：每段含源文件/段号/元数据头/正文（句子边界切分，`--seg-len` 默认 400）
+- Agent 把修缮结果写回每段的 `refined` 字段，`refine-apply` 校验后写回 `refined/`，保持目录结构
+- **安全校验（tamper_guard，段级回退）**：删汉字/删中文标点/汉字擦除/扩写压缩>20%/改年份/丢 markdown 结构标记 → 该段回退原文，其余段保留——宁可漏修，不可篡改
+- **不建议用网页登录态通道（如 visionary）批量调用**：有账号封号风险，仅限少量抽查
 
 ## 中文增强层（zh_enhance）
 
@@ -145,10 +166,12 @@ CI（`.github/workflows/ci.yml`）：单元测试（Python 3.10-3.12）+ 可选�
 
 ## 路线图
 
-- [ ] Docling 扫描管线接入（任务 5，待环境——见上）
+- [x] prep 案例→Dify 知识库预处理（v0.2.0 交付：清洗/拆分/元数据/脱敏/双库/质量门）
+- [x] refine OCR 错字修缮工作区（v0.2.0 交付：Agent 驱动 + tamper_guard 安全校验）
+- [ ] Docling 扫描管线接入（待 Linux/Docker/arm64 环境）
 - [ ] Spike 完整报告 + OcrMac 对比（任务 1.2/1.3）
 - [ ] `query` 命令：转换结果 BM25 检索（借鉴 nutrient，二期）
-- [ ] 发布到 GitHub + PyPI 正式版
+- [ ] 发布到 PyPI 正式版
 
 ## 许可证
 
