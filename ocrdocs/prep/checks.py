@@ -15,6 +15,62 @@ from pathlib import Path
 from ocrdocs.prep.config_loader import load_anonymize_map
 
 
+# ---------- 书内案例清单加载 ----------
+
+def load_case_inventory() -> list[dict]:
+    """加载 case_inventory.yaml（书内案例清册）。"""
+    import yaml
+
+    path = Path(__file__).parent / "config" / "case_inventory.yaml"
+    if not path.exists():
+        return []
+    try:
+        data = yaml.safe_load(path.read_text(encoding="utf-8"))
+        return data.get("case_inventory", []) or []
+    except Exception:
+        return []
+
+
+def check_book_cases(prep_root: Path, src_dir: Path | None = None, res: CheckResult | None = None) -> CheckResult:
+    """书内案例完整性：按 case_inventory.yaml 逐案例核对产出中是否保留。
+
+    扫描 kb_case/handout（教材块）+ kb_case/case；任一关键词命中即算保留。
+    未命中案例输出清单（含 OCR 容错变体）。
+    """
+    if res is None:
+        res = CheckResult()
+    inventory = load_case_inventory()
+    if not inventory:
+        res.fail("case_inventory.yaml 为空或缺失，书内案例核对跳过")
+        return res
+
+    # 收集产出全部文本（handout + case + assessment）
+    contents = []
+    for d in ("kb_case/handout", "kb_case/case", "kb_case/assessment"):
+        dpath = prep_root / d
+        if dpath.is_dir():
+            for md in dpath.glob("*.md"):
+                contents.append(md.read_text(encoding="utf-8", errors="ignore"))
+    blob = "\n".join(contents)
+
+    missing: list[str] = []
+    for item in inventory:
+        keys = item.get("keys") or []
+        if not keys:
+            continue
+        hit = any(k in blob for k in keys if k)
+        if hit:
+            continue
+        missing.append(item.get("title_zh", str(keys)[:20]))
+
+    total = sum(1 for i in inventory if i.get("keys"))
+    hit_count = total - len(missing)
+    res.ok(f"书内案例核对 {hit_count}/{total} 命中")
+    if missing:
+        res.fail(f"书内案例未命中 {len(missing)} 条: {missing[:6]}")
+    return res
+
+
 @dataclass
 class CheckResult:
     passed: int = 0
@@ -157,6 +213,7 @@ def run_all_checks(prep_root: Path, src_dir: Path | None = None) -> CheckResult:
         check_content_cleanliness(prep_root, res)
         check_anonymization(prep_root, res)
         check_case_integrity(prep_root, src_dir, res)
+        check_book_cases(prep_root, src_dir, res)
     except Exception as e:
         res.fail(f"验收过程异常: {e}")
     return res
