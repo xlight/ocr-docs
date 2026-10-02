@@ -30,7 +30,11 @@ def default_backend_name() -> str:
 
 
 def select_backend(ocr_engine: Optional[str] = None) -> OcrBackend:
-    """选择后端实例，支持显式覆盖。缺失时给出安装提示。"""
+    """选择后端实例（不校验可用性），支持显式覆盖。
+
+    可用性（依赖/平台）由使用前调用 `backend.check_available()` 负责，
+    职责分离：选择逻辑与运行环境检查解耦，便于测试与编排。
+    """
     backends = _available_backends()
     name = ocr_engine or default_backend_name()
 
@@ -40,12 +44,4 @@ def select_backend(ocr_engine: Optional[str] = None) -> OcrBackend:
             f"未知 OCR 后端: {name}。可用后端: {available}（默认 rapidocr）"
         )
 
-    backend_cls = backends[name]
-    backend = backend_cls()
-
-    # 校验平台/依赖可用性
-    try:
-        backend.check_available()
-    except BackendError:
-        raise
-    return backend
+    return backends[name]()
