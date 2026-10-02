@@ -27,7 +27,7 @@
 ### 1. skills.sh（AI Agent / 跨 agent 通用，推荐）
 
 ```bash
-npx skills add <user>/ocr-docs
+npx skills add xlight/ocr-docs
 ```
 
 works with Claude Code / Codex / Cursor / Zed 等所有支持 SKILL.md 的 agent。
@@ -35,7 +35,7 @@ works with Claude Code / Codex / Cursor / Zed 等所有支持 SKILL.md 的 agent
 ### 2. Claude Code Marketplace
 
 ```bash
-/plugin marketplace add <user>/ocr-docs
+/plugin marketplace add xlight/ocr-docs
 /plugin install ocr-docs@ocr-docs
 ```
 
