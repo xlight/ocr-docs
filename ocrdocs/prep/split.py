@@ -110,7 +110,7 @@ def split_document(path: Path, content: str, doc_type: str) -> SplittedDoc:
     elif doc_type == T_HANDOUT:
         splitted.chunks = _split_handout(path, content)
     elif doc_type == T_BOOK:
-        splitted.chunks = _split_book(path, content)
+        splitted.chunks = _split_book(path, content, inventory=_load_optional_inventory())
     else:
         splitted.chunks = [Chunk(doc_type, path.stem, content)]
 
@@ -232,11 +232,125 @@ def _split_handout(path: Path, content: str) -> list[Chunk]:
     return chunks if chunks else [Chunk(T_HANDOUT, path.stem, content)]
 
 
-def _split_book(path: Path, content: str) -> list[Chunk]:
-    """教材按标题层级拆：只按 ## 章（及少数 ### 有效节）拆，过滤 OCR 噪声标题。
+def _load_optional_inventory() -> list[dict]:
+    """加载 case_inventory（供案例集书锚点拆分）；失败返回空。"""
+    try:
+        from ocrdocs.prep.checks import load_case_inventory
+
+        return load_case_inventory()
+    except Exception:
+        return []
+
+
+def _find_inventory_anchors(content: str, inventory: list[dict]) -> list[tuple[str, int]]:
+    """在内容中定位每个 inventory 案例的标题行起点。
+
+    只在**正文标题行**（行首带 `#`）上匹配 keys，跳过目录/页眉等无关出现。
+    锚点 = 标题行的行首（保证切分包含完整标题 + 正文）。
+
+    Returns:
+        [(案例标题, 行首起点), ...]，按起点排序。
+    """
+    anchors: list[tuple[str, int]] = []
+    # 正文区起点：跳过目录到正文的第一个部分标题（# 第X部分）
+    part = re.search(r"^#\s*第[一二三四五]部分", content, re.M)
+    if part:
+        body_start = part.start()
+    else:
+        toc = re.search(r"^#\s*目录\s*$", content, re.M)
+        if toc:
+            body_start = toc.end()
+        else:
+            first_h3 = re.search(r"^###\s+", content, re.M)
+            body_start = first_h3.start() if first_h3 else 0
+
+    for item in inventory:
+        keys = item.get("keys") or []
+        if not keys:
+            continue
+        found = None
+        for k in keys:
+            if not k:
+                continue
+            # 优先匹配 ### 级标题行（正文案例），排除目录/部分标题
+            pat = re.compile(
+                rf"^###\s*(?!第[一二三四五]部分)[^\n]*{re.escape(k)}", re.M
+            )
+            m = pat.search(content)
+            if not m:
+                # 降级：仅在正文区（首个部分标题后）匹配独立成行的标题行
+                # （OCR 丢失 # 的标题）；排除目录页码行（行首数字）与引用（含《》/括号尾）
+                pat2 = re.compile(
+                    rf"^(?![0-9•\-])[^\n#第]*{re.escape(k)}[^\n《»]{0,25}$", re.M
+                )
+                m = pat2.search(content, body_start)
+            if m:
+                line_start = content.rfind("\n", 0, m.start()) + 1
+                found = line_start
+                break
+        if found is not None:
+            anchors.append((item.get("title_zh", ""), found))
+    anchors.sort(key=lambda x: x[1])
+    # 去重：同一位置多个案例（如“小手环”两个条目命中同一标题）保留第一个
+    deduped: list[tuple[str, int]] = []
+    seen_pos: set[int] = set()
+    for t, pos in anchors:
+        if pos not in seen_pos:
+            seen_pos.add(pos)
+            deduped.append((t, pos))
+    return deduped
+
+
+def _split_book(path: Path, content: str, inventory: list[dict] | None = None) -> list[Chunk]:
+    """教材按标题层级拆；若命中 case_inventory（案例集书），改为按案例边界拆。
+
+    inventory 按当前书过滤：book 字段匹配书名；无 book 字段的默认归属《与众不同的学生》。
+    """
+    if inventory:
+        curated = _filter_inventory_for_book(inventory, path)
+        anchors = _find_inventory_anchors(content, curated)
+        # 仅当案例锚点覆盖率足够高（≥70% 且 ≥5 个）才做案例拆分；
+        # 低覆盖率（如章节书）回退通用标题拆分
+        total = sum(1 for i in curated if i.get("keys"))
+        if total and len(anchors) / total >= 0.7 and len(anchors) >= 5:
+            return _split_book_by_cases(content, anchors)
+
+    return _split_book_generic(path, content)
+
+
+def _filter_inventory_for_book(inventory: list[dict], path: Path) -> list[dict]:
+    """按当前书筛选 inventory 条目。"""
+    name = path.name
+    if "遇见阅读障碍" in name:
+        return [i for i in inventory if i.get("book") == "遇见阅读障碍"]
+    if "与众不同" in name:
+        return [i for i in inventory if not i.get("book")]
+    return inventory
+
+
+def _split_book_by_cases(content: str, anchors: list[tuple[str, int]]) -> list[Chunk]:
+    """案例集书：按案例锚点切分，每案例一个 chunk（图注/小节归属所属案例）。"""
+    chunks: list[Chunk] = []
+    for i, (title, start) in enumerate(anchors):
+        end = anchors[i + 1][1] if i + 1 < len(anchors) else len(content)
+        seg = content[start:end].strip()
+        if seg:
+            # 清理开头可能残留的标题层级符号
+            clean_title = re.sub(r"(^#{1,4}\s*)|(^[\-—]\s*)", "", title).strip()
+            chunks.append(Chunk(T_BOOK, clean_title if clean_title else f"案例{i+1}", seg))
+    # 前置内容（首个案例前）若存在且较长，作为开篇单独 chunk
+    if anchors and anchors[0][1] > 200:
+        pre = content[:anchors[0][1]].strip()
+        if len(pre) >= 100:
+            chunks.insert(0, Chunk(T_BOOK, "开篇", pre))
+    return chunks
+
+
+def _split_book_generic(path: Path, content: str) -> list[Chunk]:
+    """通用教材按标题层级拆：只按 ## 章（及少数 ### 有效节）拆，过滤 OCR 噪声标题。
 
     整本 OCR 书标题杂（含表格噪声如 ×A2），过度拆分会产生大量噪声 chunk；
-    这里以“## 章”为主边界，并丢弃过短/纯符号标题。
+    这里以 "## 章" 为主边界，并丢弃过短/纯符号标题。
     """
     heads = list(_BOOK_HEADING.finditer(content))
     if not heads:
