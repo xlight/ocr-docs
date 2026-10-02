@@ -1,8 +1,8 @@
 """输出模块：双库目录结构、质量自检报告。
 
-输出结构（对应 2 个 Dify 知识库）：
-  kb_case/{case,assessment,handout}   → 案例库
-  kb_rule/                            → 映射规则库
+输出结构（方案 B，对应 2 个 Dify 知识库）：
+  kb_case/<源文档>/   → 案例库（按原文档文件名分目录）
+  kb_rule/<源文档>/    → 映射规则库
 """
 
 from __future__ import annotations
@@ -11,16 +11,24 @@ import json
 from dataclasses import dataclass, field
 from pathlib import Path
 
-# 各文档类型 → 输出子目录（相对 prep 根）
-TYPE_OUTPUT_DIR = {
-    "评估汇总": ("kb_case", "assessment"),
-    "个案记录": ("kb_case", "assessment"),
-    "结构化案例": ("kb_case", "case"),
-    "叙事案例": ("kb_case", "case"),
-    "映射表": ("kb_rule", ""),
-    "讲义": ("kb_case", "handout"),
-    "教材专著": ("kb_case", "handout"),
+# 各文档类型 → 输出双库层（方案 B：仅在 kb_case/kb_rule 下按源文档分目录）
+TYPE_KB = {
+    "评估汇总": "kb_case",
+    "个案记录": "kb_case",
+    "结构化案例": "kb_case",
+    "叙事案例": "kb_case",
+    "映射表": "kb_rule",
+    "讲义": "kb_case",
+    "教材专著": "kb_case",
 }
+
+
+def output_dir_for(doc_type: str) -> Path:
+    """返回该类型的输出双库层目录（kb_case 或 kb_rule，相对 prep 根）。
+
+    方案 B：外层双库 + 按源文档文件名分子目录（由 pipeline 拼接）。
+    """
+    return Path(TYPE_KB.get(doc_type, "kb_case"))
 
 
 @dataclass
@@ -32,12 +40,6 @@ class PrepStats:
     unknown_names: list[str] = field(default_factory=list)
     discarded_chunks: int = 0      # 质量门丢弃
     merged_chunks: int = 0         # 质量门并入父块
-
-
-def output_dir_for(doc_type: str) -> Path:
-    """返回该类型的输出子目录（相对 prep 根）。"""
-    kb, sub = TYPE_OUTPUT_DIR.get(doc_type, ("kb_case", ""))
-    return Path(kb) / sub if sub else Path(kb)
 
 
 def write_chunks(

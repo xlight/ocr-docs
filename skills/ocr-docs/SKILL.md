@@ -50,7 +50,7 @@ ocr-docs convert --scanned 扫描书.pdf --front-matter-pages 4 -o 输出.md
 
 ```bash
 ocr-docs prep 案例/markdown -o 案例/markdown/prep
-# 输出：kb_case{case,assessment,handout} + kb_rule + dify_config.md + prep_report.json
+# 输出：kb_case/<源文档>/ + kb_rule/<源文档>/ + dify_config.md + prep_report.json
 ```
 
 **常用参数**：

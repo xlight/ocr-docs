@@ -44,13 +44,12 @@ def check_book_cases(prep_root: Path, src_dir: Path | None = None, res: CheckRes
         res.fail("case_inventory.yaml 为空或缺失，书内案例核对跳过")
         return res
 
-    # 收集产出全部文本（handout + case + assessment）
+    # 收集产出全部文本（kb_case + kb_rule 下所有 md，含源文件子目录）
     contents = []
-    for d in ("kb_case/handout", "kb_case/case", "kb_case/assessment"):
-        dpath = prep_root / d
-        if dpath.is_dir():
-            for md in dpath.glob("*.md"):
-                contents.append(md.read_text(encoding="utf-8", errors="ignore"))
+    for md in prep_root.rglob("*.md"):
+        if md.name == "dify_config.md":
+            continue
+        contents.append(md.read_text(encoding="utf-8", errors="ignore"))
     blob = "\n".join(contents)
 
     missing: list[str] = []
@@ -92,13 +91,22 @@ _META_KEYS = ("【类型】", "【障碍类别】", "【主要行为】", "【�
 
 
 def check_structure(prep_root: Path, res: CheckResult) -> None:
-    """目录结构与文件数检查。"""
-    expect_dirs = ["kb_case", "kb_case/case", "kb_case/assessment", "kb_case/handout", "kb_rule"]
-    for d in expect_dirs:
-        if (prep_root / d).is_dir():
-            res.ok(f"目录存在: {d}")
+    """目录结构与文件数检查（方案 B：双库 + 源文件子目录）。"""
+    # 外层双库
+    for kb in ("kb_case", "kb_rule"):
+        if (prep_root / kb).is_dir():
+            res.ok(f"双库目录存在: {kb}")
         else:
-            res.fail(f"缺少目录: {d}")
+            res.fail(f"缺少双库目录: {kb}")
+    # 源文件子目录（kb_case/kb_rule 下应有非空子目录）
+    src_subdirs = [
+        p for kb in ("kb_case", "kb_rule")
+        for p in (prep_root / kb).glob("*") if p.is_dir()
+    ]
+    if src_subdirs:
+        res.ok(f"源文件子目录 {len(src_subdirs)} 个（按原文档分目录）")
+    else:
+        res.fail("缺少源文件子目录")
     if (prep_root / "dify_config.md").exists():
         res.ok("dify_config.md 存在")
     else:
@@ -187,7 +195,11 @@ def check_case_integrity(prep_root: Path, src_dir: Path | None = None, res: Chec
     """
     if res is None:
         res = CheckResult()
-    eval_out = [f.name for f in (prep_root / "kb_case" / "assessment").glob("*.md") if f.name.startswith("评估_")]
+    # 评估文件在 kb_case/<源文档>/ 下（方案 B），递归查找评估_* 文件
+    eval_out = [
+        f.name for f in prep_root.rglob("*.md")
+        if f.name.startswith("评估_") and "kb_case" in f.parts
+    ]
     res.ok(f"产出评估文件 {len(eval_out)} 个")
     if src_dir:
         src = src_dir / "00评估个案汇总.md"

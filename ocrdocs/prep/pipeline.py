@@ -85,7 +85,9 @@ def run_prep(
             # 5. 文件名（含脱敏）+ 输出路径
             fname = build_filename(chunk.doc_type, chunk.title, meta)
             fname = anonymize.anonymize_filename(fname, mapping)
-            rel_dir = prep_output.output_dir_for(chunk.doc_type)
+            # 方案 B：双库（kb_case/kb_rule）外层 + 源文档文件名子目录
+            src_dir_name = anonymize.anonymize_filename(md_path.stem, mapping)
+            rel_dir = prep_output.output_dir_for(chunk.doc_type) / src_dir_name
             out_path = out_dir / rel_dir / fname
             out_items.append((out_path, full_text, chunk.doc_type, meta))
 

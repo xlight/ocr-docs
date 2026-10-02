@@ -110,11 +110,11 @@ flowchart LR
     B --> C[拆分<br/>按 7 类文档类型]
     C --> D[元数据注入<br/>类型/障碍/行为/工具/目标]
     D --> E[脱敏<br/>小X 候选 + 映射]
-    E --> F[双库输出<br/>kb_case + kb_rule]
+    E --> F[双库输出<br/>kb_case + kb_rule 按源文档分目录]
     F --> G[prep_report.json 质量自检]
 ```
 
-- 输出 `kb_case/{case,assessment,handout}`（案例库）+ `kb_rule`（映射规则库）
+- 输出 `prep/kb_case/<源文档>/`（案例库）+ `prep/kb_rule/<源文档>/`（映射规则库），按原文档文件名分目录
 - 文件名体现核心特征：`{类型}_{代号}_{障碍类别}_{核心行为}.md`
 - 附带 `dify_config.md`（Dify 导入配置模板）与 `prep_report.json`（统计/元数据覆盖/待脱敏清单）
 - 详见 [`京小融/案例/案例Markdown导入Dify知识库预处理说明.md`](../京小融/案例/案例Markdown导入Dify知识库预处理说明.md)
